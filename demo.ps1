@@ -312,8 +312,112 @@ $Processes | Select-Object Name, ID, CPU | Out-File C:\TTL\processnames.txt
 $Processes | Select-Object Name, ID, CPU | Out-File C:\TTL\processnames.txt | Get-Member
 #endregion
 
+#region Filter
+
+#Look at the command before running it
+Get-Help Get-CimInstance
+
+#Filtering helps narrow down the information that you are looking for. Rarely would you want to pull back every single AD account whne you're only looking for a single one
+#Filtering in the original command  is faster as it only pulls back what matches your filter. Here is an example of filtering on the "left" side
+Get-CimInstance -class Win32_NetworkAdapterConfiguration -Filter "IpEnabled = 'True' " 
+
+#Here is an example of filtering on the "right" side. This brings back all of the network adapters and then checks through them to find which meets our criteria. 
+#Note that we get the same exact results 
+Get-CimInstance -class Win32_NetworkAdapterConfiguration | Where-Object {$_.IPEnabled -eq 'True'}
+
+#How can we find the differences in speed between the two. Measure-Command executes the commands and tells us how long each takes.
+#In this example it's only about 20% difference. Active Directory is especially sensitive to filtering and when checking over thousands of users you can see a large difference
+Write-Output "Filter Left:"
+Measure-Command {Get-CimInstance -class Win32_NetworkAdapterConfiguration -Filter "IpEnabled = 'True' "}
+Write-Output "Filter Right"
+Measure-Command {Get-CimInstance -class Win32_NetworkAdapterConfiguration | Where-Object {$_.IPEnabled -eq 'True'}}
+
+#You can filter on both sides if you want or find a scenario where this makes sense. Here we retrieved all enabled adapters then found the Intel one
+Get-CimInstance -class Win32_NetworkAdapterConfiguration -Filter "IpEnabled = 'True' " | Where-Object {$_.Description -like "*Intel*" }
+
+#Page on comparison operators https://docs.microsoft.com/en-us/powershell/module/microsoft.powershell.core/about/about_comparison_operators?view=powershell-5.1
+
+#endregion
+
+#region Moving past simple commands
+#Powershell doesn't have to be about just single line commands. You can create a quick command to start something or string a long single line command together 
+#to accomplish something. Other situations will require more complex code. This is where variables come in handy.
+#For this example we'll see how you can have multiple values stored in a single variable. 
+#Similar to how we queried running processes earlier, we can check Windows services as well.
+$services = Get-Service
+
+#We can see that the services show what the status is, service name, and a description of the service. 
+$services
+
+#So what happens if we need to run a command against individual services? As an example here we can see that we can go through a service at a time and list the names
+#This is very inefficient, as we saw earlier we could run $services.Name but this is an example
+#What you see here is a loop. We're looping through all the values in $services. This will start with $services[0] which is the first value and assign that value to $service
+#Then it will move to $services[1] and assign that value to $service. When it runs out of values in $services it will stop.
+#This allows us to use the variable $service within the loop and it only affects the single service at a time
+Foreach ($Service in $services){
+
+    Write-Output $Service.Name
+
+}
+
+#Here we can refine our loop a little bit more. We print out that this will be a list of manual services. Then we loop through every service and see if it is a manual startup
+#If it is set for manual startup then we print the service name
+Write-Output "Manual services:"
+
+Foreach ($Service in $services){
 
 
+    If ($Service.StartType -eq "Manual")
+        {
+   
+         $Service.Name
+
+        }
+
+}
+
+#Lets refine this a bit more. Not only do we want the automatic services listed, but we also want to find out which ones are not running. This could be a realistic scenario
+#since usually you want automatic services to be running. 
+Write-Output "Automatic services not started:"
+
+Foreach ($Service in $services){
+
+
+    If (($Service.StartType -eq "Automatic") -and ($service.Status -eq "Stopped"))
+        {
+   
+         $Service.Name
+
+        }
+
+}
+
+
+#We can use this to fix services which are not running. We loop through all of our automatic services which are not running and attempt to start them
+#This is not always successful, but that's more of a function of that service having an issue than the powershell command not working as expected.
+Foreach ($Service in $services){
+
+
+    If (($Service.StartType -eq "Automatic") -and ($service.Status -eq "Stopped"))
+        {
+   
+         Start-Service -Name $Service.Name
+
+        }
+
+}
+
+#You can't run this, but here's a realistic example of a simple loop. This pulls back all students in a single OU and changes their User Principal name to a new value
+$students = get-aduser -SearchBase "OU=Students,OU=Example,DC=Contoso,DC=com" -filter * 
+
+Foreach ($student in $students){
+
+    $newupn = $student.samaccountname + "@newcontoso.com"
+
+    Set-ADUser -Identity $student.SamAccountName -UserPrincipalName $newupn
+}
+
+#endregion
 
 #region Advanced
 
