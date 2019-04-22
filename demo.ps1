@@ -121,11 +121,199 @@ Get-Date -Date "May_1"
 $host.PrivateData.ErrorForegroundColor = 'Green'
 
 #endregion
+
+#region File manipulation
+#Create a new empty directory
+New-Item -Path C:\ -Name "TTL" -ItemType "directory"
+
+#Check directory properties
+Get-Item -Path "C:\TTL"
+
+#Create a couple files for example
+New-Item -Path "C:\TTL\" -Name "TTL.csv"
+
+New-Item -Path "C:\TTL\" -Name "TTL2.csv"
+
+New-Item -Path "C:\TTL\" -Name "TTL3.csv"
+
+New-Item -Path "C:\TTL\" -Name "TTL.txt"
+
+New-Item -Path "C:\TTL\" -Name "TTL.docx"
+
+New-Item -Path "C:\TTL\" -Name "TTL.xlsx"
+
+#Check items in our directory
+Get-ChildItem -Path "C:\TTL"
+
+#Get only csv files in our directory
+Get-ChildItem -Path "C:\TTL" -Filter "*.csv"
+
+#Create second directory
+New-Item -Path "C:\" -Name "TTL2" -ItemType "directory"
+
+#Get all csv files in first directory and move them to the second directory
+Get-ChildItem -Path "C:\TTL" -Filter "*.csv" | Move-Item -Destination "C:\TTL2\"
+
+#Check first directory
+Get-ChildItem -Path "C:\TTL"
+
+#Check second directory
+Get-ChildItem -Path "C:\TTL2"
+
+#Cleanup our second directory including all files and do not prompt about removal
+Remove-Item -Path "C:\TTL2" -Recurse -Confirm:$false
+#endregion
+
+#region Import/Export
+#So far we've covered simple one line commands. An example of one of these commands is Get-Process
+Get-Process
+
+#Often times just viewing things in the shell output isn't the most useful way to look at the output. Another method we can use is Out-GridView
+#Out-GridView pops up another window and allows for a more visual representation of the output. This also allow for filtering and sorting via clicking on the grid. 
+Get-Process | Out-GridView
+
+#Grid view is nice but often you need to store information for historical documentation or to pass information to another service
+#CSV's are still a standard for getting data from one service to another. We can take the process information and export it out to a CSV
+Get-Process | Export-Csv C:\TTL\processes.csv
+
+#What is the difference between what we saw on the screen and what it output to the CSV? This CSV shows all of the information gathered by Get-Process, not just the default view
+Invoke-Item C:\ttl\processes.csv
+
+#We can actually specify that we want all of the information for each process. This is much easier to see in a list format than table
+Get-Process | Format-List *
+
+#We can also import information from CSV files. As you see, since we exported all of the properties to the CSV file, now we see all the properties when importing. 
+Import-Csv C:\TTL\Processes.csv
+
+#While viewing information in the shell is helpful we can store it in variables in which we can further manipulate. I'll come back to this in a bit
+$Processes = Import-Csv C:\ttl\processes.csv
+
+#It's not just tables that we can work with. Here's outputting text which can be very useful for logging
+"Test Text" | Out-File C:\TTL\text.txt
+
+#Check out the output
+Invoke-Item C:\TTL\text.txt
+
+#There are other conversions that can be useful such as to html
+"Test Text" | ConvertTo-Html
+
+#Conversion to json is useful for passing information to other services via API
+$Processes | ConvertTo-Json
+#endregion
+
+#region More commands
+#You've seen what the built in commands can do and how to search them. There are many other available Powershell commands that are not loaded by default. 
+#You can extend the Powershell commands by importing other modules. Start by viewing what modules are loaded by default
+Get-Module
+
+#RSAT tools must be installed to run this (https://www.microsoft.com/en-us/download/details.aspx?id=45520)
+#If you have the RSAT tools on your laptop already you can run the following Import-Module. This loads AD related commands into your shell
+#In fact, this is what happens when you launch the AD Powershell on a Domain Controller. It loads a standard shell and then imports the AD commands
+#This is very similar to how Exchange, Lync, DPM, etc shells function
+Import-Module ActiveDirectory
+
+#You can then run this again to see the additional modules
+Get-Module
+
+#You can get what commands are added after importing the module and search them as we saw earlier
+Get-Command -Module activedirectory
+
+#Modules are not limited to programs that you installed already. The Powershell Gallery has a large amount of modules available to install with over 4000 packages available
+#You can search and find documentation on them on the website
+Start-Process -FilePath "https://www.powershellgallery.com/"
+
+#For example, Vmware PowerCLI
+Start-Process -FilePath "https://www.powershellgallery.com/packages/VMware.PowerCLI/11.2.0.12780525"
+
+#Installation can all be accomplished in Powershell with the modules being downloaded. This one takes a little time as there are a lot of commands included
+Install-Module VMware.PowerCLI
+
+#Once the module is downloaded it can be called in any script. To do so, just use Import-Module 
+Import-Module VMware.PowerCLI
+
+#Check out all the commands added. Vmware breaks theirs out into a bunch of modules so we'll search across all
+Get-Command -Module *vmware*
+
+#WinSCP is another common module. This allows for easy and scheduled uploads
+Install-Module WinSCP
+
+#Modules can be constantly updated. Use this to download and install the latest version of the module
+Update-Module WinSCP
+
 #endregion
 
 #region Intermediate
 
 #endregion
+
+#region Objects
+#Powershell is an object-oriented language. This means that when we get the output of a command it is nicely structured and can be worked with.
+#Contrast this to bash where the output is text that can be manipulated. We don't have to look for patterns or worked but can simply use properties of the object
+#Out-GridView provides a nice way to visualize what the properties look like. Run this and look at the column names. These are all attributes of the object
+Get-Process | Out-GridView
+
+#To make things easier we'll save the output of Get-Process to a variable. It's less typing and will demonstrate how you can work with objects in different ways
+$Processes = Get-Process
+
+#Here we can see what calling a property does. We're using Get-Process like we did before, but specifying to only return the Name property. Run this and see how only the name are returned
+Get-Process | Select-Object Name
+
+#Alternately, we can use our variable to demonstrate this as well. We've captured all the output of Get-Process into the variable so that the variable is the exact
+#output we would have gotten. We can see that $Processes is the object and we're calling a property of that object and only returning that property.
+$Processes.Name
+
+#The nice thing about being able to work with the properties of an object is that we can quickly get what we want without any strange statements.
+#Here we want to only pull back information on any instances of notepad that are running. We can use the -Name parameter and supply the name we are looking for
+Get-Process -Name notepad
+
+#The power to this is that when we receive the output it remains an object. We can use that object and also pass it to other commands. 
+#Here we pass it to Stop-Process. We've used Get-Process to narrow down only the processes that we're looking for. This can work also if we have multiple instances
+#of notepad running
+Get-Process -Name notepad | Stop-Process
+
+#So how do you know what you can do with an object? We can use Get-Member to examine the object and see what is available
+#There are a few important things to notice. First, aliases function just like command aliases do. We can see that using the name property is really an alias for ProcessName
+#Methods are actions that we can perform. For example, if we had a single process in the object we could use the .kill() method. I wouldn't recommend trying that on 
+#an object with all your process though!
+#Properties are what we have mostly been talking about. We can see that there are many properties to each process. We can call those by name to select like we did earlier
+#Or we can sort or filter based on those properties
+$Processes | Get-Member
+
+#If we're being correct, we would use the ProcessName property rather than the Name alias. Does this matter? Not really. But in the interest of teaching and 
+#especially in scripts it is better to use the full name or property for something. These are often more clear when you are reading what you wrote later,
+#or if someone else is reading it.
+$processes.ProcessName
+
+#Knowing that we can sort on properties we can go ahead and test that using ProcessName
+$processes | Sort-Object -Property ProcessName
+
+#We can choose which way it sorts. This sorts from lowest to highest
+$processes | Sort-Object -Property CPU
+
+#Reversing that we get highest to lowest
+$processes | Sort-Object -Property CPU -Descending
+
+#As objects go down the pipeline we refine down to what we want. Each command that we pass into does its action and leaves a different output than what we passed to it
+#Lets examine $processes again and see how many attributes there are
+$processes | Get-Member
+
+#Perhaps we only want to get the Name, ID and CPU from the process because the rest of the information is not important. We can run that and only obtain the 
+#results that we're looking for. 
+$Processes | Select-Object Name, ID, CPU
+
+#When we look at the Get-Member results we can see that attributes are narrowed down compared to the original attribute list
+$Processes | Select-Object Name, ID, CPU | Get-Member
+
+#A logical next ste would be to pass those values out to a file to store or send to someone requesting that information
+$Processes | Select-Object Name, ID, CPU | Out-File C:\TTL\processnames.txt
+
+#When we look at what is left in the pipeline after Out-File we see that there is no object passed on. The object has been fully used and nothing is passed along
+#This is common for when files are exported. It gives a good look at what happens to the object as it passes along the pipeline
+$Processes | Select-Object Name, ID, CPU | Out-File C:\TTL\processnames.txt | Get-Member
+#endregion
+
+
+
 
 #region Advanced
 
