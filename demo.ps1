@@ -387,83 +387,159 @@ Exit-PSSession
 #region Simple scripting
 #Powershell doesn't have to be about just single line commands. You can create a quick command to start something or string a long single line command together 
 #to accomplish something. Other situations will require more complex code. This is where variables come in handy.
-#For this example we'll see how you can have multiple values stored in a single variable. 
-#First, let's export some information on services and we can see how importing information into a variable works for a script
+#We can create a short script which prompts the user for a service and then returns the status of that service. This provides the user a method to find status without having to know anything more
+#We could save this code snippet as a .ps1 and have another user run it
+
+$name = Read-Host "Enter a service name"
+$service = Get-Service $name 
+
+     If ($service.status -eq "Running") {
+
+         Write-Output "The service is running"} 
+
+    Else {
+
+        Write-Output "The service is not running"}
+
+#Prompting a user for a value is necessary for some scripts. However, many scripts require automation. It would be difficult to require a user to type in values if the script runs on a schedule
+#Alternately, we can provide a value for the service name which then can automatically run.
+
+$name = "BITS"
+$service = Get-Service $name 
+        
+    If ($service.status -eq "Running") {
+        
+        Write-Output "The service $name is running"}
+        
+    Else {
+        
+        Write-Output "The service $name is not running"}
+
+
+#If we want to be a bit more dynamic, we could maintain a csv file of services that we want to check. The first command simply exports some services for us to create that csv
+#Then we can run the rest of the script on a regular basis. We've also added logging to the script. Since we won't be sitting at the console everytime this runs we need a way to check the results
+#Here we can drop the results to a log and check at our leisure
+
+#run once
+$log = "c:\ttl\log.txt"
+Get-Service "BITS" | Export-Csv c:\ttl\services.csv -NoTypeInformation
+
+#Script to be scheduled
+$service = Import-Csv C:\ttl\services.csv
+$name = $service.name
+
+    If ($service.status -eq "Running") {
+        
+        Write-Output "The service $name is running" | Out-File $log -Append }
+        
+    Else {
+        
+        Write-Output "The service $name is not running" | Out-File $log -Append }
+
+Invoke-item $log
+
+
+#Naturally we want to extend this so that we could check multiple services. To do this we can add a simple loop into the script
+#This works easily since the $services variable is just a collection of multiple values. Foreach tells the loop to go through each value of $services one value at a time
+#This starts with the first value which is $services[0] then to $services[1] and $services[2]. You can run that in your shell to see the values. 
+#The foreach loop does this automatically. It allows us to specify $service as the variable to put a single value and work with that within our loop. So now we are looping through
+#each value and checking that service.
+
+$log = "c:\ttl\log.txt"
 Get-Service "BITS","BranchCache","ibtsiva" | Export-Csv c:\ttl\services.csv -NoTypeInformation
 
-#Similar to how we queried running processes earlier, we can check Windows services as well.
 $services = Import-Csv C:\ttl\services.csv
+    
+    Foreach ($service in $services){
 
-#We can see that the services show what the status is, service name, and a description of the service. 
-$services
+        $name = $service.name
 
-#So what happens if we need to run a command against individual services? As an example here we can see that we can go through a service at a time and list the names
-#This is very inefficient, as we saw earlier we could run $services.Name but this is an example
-#What you see here is a loop. We're looping through all the values in $services. This will start with $services[0] which is the first value and assign that value to $service
-#Then it will move to $services[1] and assign that value to $service. When it runs out of values in $services it will stop.
-#This allows us to use the variable $service within the loop and it only affects the single service at a time
-Foreach ($Service in $services){
+        If ($service.status -eq "Running") {
+            
+            Write-Output "The service $name is running" | Out-File $log -Append }
+            
+        Else {
+            
+            Write-Output "The service $name is not running" | Out-File $log -Append }
 
-    Write-Output $Service.Name
+    }
 
-}
+Invoke-item $log
 
-#Here we can refine our loop a little bit more. We print out that this will be a list of manual services. Then we loop through every service and see if it is a manual startup
-#If it is set for manual startup then we print the service name
-Write-Output "Manual services:"
+#As we evolve our script we realize that just knowing that a service is started or stopped isn't everything we need. We want our automatic services to be running. If they aren't running
+#then we want to remediate that. If it is a manual service and it's stopped it has likely run it's course so we'll ignore that. To accomplish this we'll add another If statement
+#This way if the service is stopped then we evaluate if the service is Automatic or not and then if it is Automatic we log that and start the service.
 
-Foreach ($Service in $services){
+$log = "c:\ttl\log.txt"
+Get-Service "BITS","BranchCache","ibtsiva" | Export-Csv c:\ttl\services.csv -NoTypeInformation
 
+$services = Import-Csv C:\ttl\services.csv
+    
+    Foreach ($service in $services){
 
-    If ($Service.StartType -eq "Manual")
-        {
-   
-         $Service.Name
+        $name = $service.name
 
+        If ($service.status -eq "Running") {
+            
+            Write-Output "The service $name is running" | Out-File $log -Append 
         }
+            
+        Else {
+            
+            If ($service.StartType -eq "Automatic"){
 
-}
+                Write-Output "The service $name is not running and should be. Starting service" | Out-File $log -Append 
 
-#Lets refine this a bit more. Not only do we want the automatic services listed, but we also want to find out which ones are not running. This could be a realistic scenario
-#since usually you want automatic services to be running. 
-Write-Output "Automatic services not started:"
+                Start-Service -Name $service.Name
 
-Foreach ($Service in $services){
+            }
 
+            Else{
+            
+                Write-Output "The service $name is not running" | Out-File $log -Append 
+            }
+        }    
+    }
 
-    If (($Service.StartType -eq "Automatic") -and ($service.Status -eq "Stopped"))
-        {
-   
-         $Service.Name
+Invoke-item $log
 
+#endregion
+
+#region Error Handling
+
+$log = "c:\ttl\log.txt"
+Get-Service "BITS","BranchCache","ibtsiva" | Export-Csv c:\ttl\services.csv -NoTypeInformation
+
+$services = Import-Csv C:\ttl\services.csv
+    
+    Foreach ($service in $services){
+
+        $name = $service.name
+
+        If ($service.status -eq "Running") {
+            
+            Write-Output "The service $name is running" | Out-File $log -Append 
         }
+            
+        Else {
+            
+            If ($service.StartType -eq "Automatic"){
 
-}
+                Write-Output "The service $name is not running and should be. Starting service" | Out-File $log -Append 
 
+                Start-Service -Name $service.Name
 
-#We can use this to fix services which are not running. We loop through all of our automatic services which are not running and attempt to start them
-#This is not always successful, but that's more of a function of that service having an issue than the powershell command not working as expected.
-Foreach ($Service in $services){
+            }
 
+            Else{
+            
+                Write-Output "The service $name is not running" | Out-File $log -Append 
+            }
+        }    
+    }
 
-    If (($Service.StartType -eq "Automatic") -and ($service.Status -eq "Stopped"))
-        {
-   
-         Start-Service -Name $Service.Name
+Invoke-item $log
 
-        }
-
-}
-
-#You can't run this, but here's a realistic example of a simple loop. This pulls back all students in a single OU and changes their User Principal name to a new value
-$students = get-aduser -SearchBase "OU=Students,OU=Example,DC=Contoso,DC=com" -filter * 
-
-Foreach ($student in $students){
-
-    $newupn = $student.samaccountname + "@newcontoso.com"
-
-    Set-ADUser -Identity $student.SamAccountName -UserPrincipalName $newupn
-}
 
 #endregion
 
