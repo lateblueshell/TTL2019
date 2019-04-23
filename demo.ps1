@@ -603,6 +603,205 @@ This shows an example of a function in a class where a finally block is used to 
 
 #endregion
 
+#region Functions
+
+<#The next logical step of our script is enclosing what we've done in a function. Functions allow us to name our function (Get-ServiceStatus) and execute the function. Once that code
+is run then we can run it again by calling Get-ServiceStatus. If we intend on running this multiple times in a single script we can save some writing and confusion by enclosing it in 
+a function. One thing to note is variable scope. Any variables declared outside of the function are considered global variables and available. Variables within the scope are local 
+to the scope of the function. When the function is completed those variable go away and cannot be called. 
+#>
+Function Get-ServiceStatus {
+$log = "c:\ttl\log.txt"
+Get-Service "BITS","BranchCache","ibtsiva" | Export-Csv c:\ttl\services.csv -NoTypeInformation
+
+$services = Import-Csv C:\ttl\services.csv
+    
+    Foreach ($service in $services){
+
+        $name = $service.name
+
+        If ($service.status -eq "Running") {
+            
+            Write-Output "The service $name is running" | Out-File $log -Append 
+        }
+            
+        Else {
+            
+            If ($service.StartType -eq "Automatic"){
+
+                Write-Output "The service $name is not running and should be. Starting service" | Out-File $log -Append 
+
+                Try {
+                 
+                    Start-Service -Name $service.Name -ErrorAction Stop
+                
+                }
+
+                Catch{
+
+                    $ErrorMessage = $_.Exception.Message
+                    $FailedItem = $_.Exception.GetType().FullName  
+                    $LogEntry = "Unable to start service: " -f $FailedItem, $ErrorMessage
+                    Out-File $LogEntry -Append 
+
+                }
+
+            }
+
+            Else{
+            
+                Write-Output "The service $name is not running" | Out-File $log -Append 
+            }
+        }    
+    }
+
+Invoke-item $log
+}
+
+Get-ServiceStatus
+
+<# While the previous example showed you how to change a block of code into a function, it certainly isn't optimized for a function. The function is hardcoded to pull certain services
+out of a file. We would like to keep our functions as simple as can be. In this case we will refactor the function to focus only on one service at a time. We will remove the loop
+from the function. Instead we add our own parameters to the function. These function just like the parameters we used in the built in Powershell commands. It is a best practice to tell 
+the function what type of data we expect from these parameters which we are saving into variables. In this case both of them are strings so that makes it easy. We can then use those
+variable within the function with values that came from outside the function. In this case we're passing one service at a time into the function but with a single command so it's cleaner
+and easier to understand. Alternately we could create a loop outside of the function to pass all 3 values in one at a time, similar to what we had in the code before. This shows how
+functions are reusable and easy to understand what is happening
+#>
+
+$log = "c:\ttl\log.txt"
+Function Get-ServiceStatus {
+
+    Param(
+        [string] $servicename,
+        [string] $log
+    )
+
+    $service = Get-Service $servicename
+    $name = $service.Name
+
+    If ($service.status -eq "Running") {
+                
+        Write-Output "The service $name is running" | Out-File $log -Append 
+    }
+                
+    Else {
+                
+        If ($service.StartType -eq "Automatic"){
+        
+            Write-Output "The service $name is not running and should be. Starting service" | Out-File $log -Append 
+        
+            Try {
+                        
+                Start-Service -Name $service.Name -ErrorAction Stop
+                        
+            }
+        
+            Catch{
+        
+                $ErrorMessage = $_.Exception.Message
+                $FailedItem = $_.Exception.GetType().FullName  
+                $LogEntry = "Unable to start service: " -f $FailedItem, $ErrorMessage
+                Out-File $LogEntry -Append 
+        
+            }
+        
+        }
+    
+        Else{
+                    
+            Write-Output "The service $name is not running" | Out-File $log -Append 
+        }
+
+    
+    }
+
+}
+
+
+
+
+
+Get-ServiceStatus -servicename "BITS" -log $log
+Get-ServiceStatus -servicename "BranchCache" -log $log
+Get-ServiceStatus -servicename "ibtsiva" -log $log
+Invoke-item $log
+
+<# We will refactor our function one more time. Powershell gives us the ability to require that parameters be filled out. You may notice this with some of the built in commands.
+Here you see that we added the [Parameter(Mandatory=$true)] designation for the $servicename parameter. We have to do this because if we call Get-Service with no value it will error out.
+By requiring the parameter we can avoid user input errors causing function errors. We've also added a $computername parameter which has a default value. That is an enviornmental variable
+so that if no -computername parameter is specified the function will run against the local computer. If a name is specified then Get-Service will run against the remote computer specified.
+#>
+
+$log = "c:\ttl\log.txt"
+Function Get-ServiceStatus {
+
+    Param(
+        [Parameter(Mandatory=$true)]
+        [string] $servicename,
+        [string] $computername = $env:COMPUTERNAME,
+        [Parameter(Mandatory=$true)]
+        [string] $log
+    )
+
+    $service = Get-Service $servicename -ComputerName $computername
+    $name = $service.Name
+
+    If ($service.status -eq "Running") {
+                
+        Write-Output "The service $name is running" | Out-File $log -Append 
+    }
+                
+    Else {
+                
+        If ($service.StartType -eq "Automatic"){
+        
+            Write-Output "The service $name is not running and should be. Starting service" | Out-File $log -Append 
+        
+            Try {
+                        
+                Start-Service -Name $service.Name -ErrorAction Stop
+                        
+            }
+        
+            Catch{
+        
+                $ErrorMessage = $_.Exception.Message
+                $FailedItem = $_.Exception.GetType().FullName  
+                $LogEntry = "Unable to start service: " -f $FailedItem, $ErrorMessage
+                Out-File $LogEntry -Append 
+        
+            }
+        
+        }
+    
+        Else{
+                    
+            Write-Output "The service $name is not running" | Out-File $log -Append 
+        }
+
+    
+    }
+
+}
+
+
+
+
+
+Get-ServiceStatus -servicename "BITS" -log $log
+Get-ServiceStatus -servicename "BranchCache" -log $log
+Get-ServiceStatus -servicename "ibtsiva" -log $log
+Invoke-item $log
+
+<#Now we can test our mandatory parameters. Run the following command without and parameters. Note how it asks for both the service name and log as we've made those mandatory. This 
+can help enforce data integrity
+#>
+
+Get-ServiceStatus
+
+#endregion
+
 #endregion 
 
 #region Advanced
