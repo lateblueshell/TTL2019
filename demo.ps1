@@ -507,6 +507,13 @@ Invoke-item $log
 
 #region Error Handling
 
+<#When we're running a script automatically we have to plan that someone will not be watching the console to see if the script is running. In our example we are trying to start a service
+What happens if we're unable to start the service? How do you know? Currently we're writing to the log that we're trying to start the service, but if that fails we don't know, just that 
+the service didn't start. We can use try/catch blocks to catch errors. These blocks will catch the error as it happens. When an error occurs in the Try block the error is passed down
+to the Catch block. We grab the error properties and pass them to the Catch block and then drop the errors to the log file. This gives us visibility into an error that is thrown 
+and then can be addressed.
+#>
+
 $log = "c:\ttl\log.txt"
 Get-Service "BITS","BranchCache","ibtsiva" | Export-Csv c:\ttl\services.csv -NoTypeInformation
 
@@ -527,7 +534,20 @@ $services = Import-Csv C:\ttl\services.csv
 
                 Write-Output "The service $name is not running and should be. Starting service" | Out-File $log -Append 
 
-                Start-Service -Name $service.Name
+                Try {
+                 
+                    Start-Service -Name $service.Name -ErrorAction Stop
+                
+                }
+
+                Catch{
+
+                    $ErrorMessage = $_.Exception.Message
+                    $FailedItem = $_.Exception.GetType().FullName  
+                    $LogEntry = "Unable to start service: " -f $FailedItem, $ErrorMessage
+                    Out-File $LogEntry -Append 
+
+                }
 
             }
 
@@ -539,6 +559,46 @@ $services = Import-Csv C:\ttl\services.csv
     }
 
 Invoke-item $log
+
+<#Another way to use the Try/Catch block is Try/Catch/Finally blocks. I've used those in situations where you want a command to run at the end no matter what the earlier result was.
+This shows an example of a function in a class where a finally block is used to dispose or close the connection when it's done. Don't try to run this example was it won't work
+#>
+[DataSet] GetDataSet([string]$SQL) {
+
+    $this.InsertLogEntry("Attempting to execute the following sql query: " + $SQL)
+    [SqlConnection] $conn = new-object SqlConnection($this.ConnectionString)
+    [SqlDataAdapter] $da = new-object SqlDataAdapter
+    [SqlCommand] $cmd = $conn.CreateCommand()
+    $cmd.CommandText = $SQL
+    $cmd.CommandTimeout = 120
+    $da.SelectCommand = $cmd
+    [DataSet] $ds = new-object DataSet
+
+    Try {
+
+        $conn.Open
+        $da.Fill($ds)
+
+    }
+    Catch {
+        $ErrorMessage = $_.Exception.Message
+        $FailedItem = $_.Exception.GetType().FullName  
+        $LogEntry = "Unable to retrieve dataset: {0}, {1}" -f $FailedItem, $ErrorMessage
+        $this.InsertLogEntry($LogEntry)            
+    }
+
+    Finally {
+
+        $cmd.Dispose()
+
+        If ($conn.State -ne "Closed") {
+                $conn.close()
+        }
+    }
+
+    return $ds
+}
+
 
 
 #endregion
