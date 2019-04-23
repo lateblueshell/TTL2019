@@ -242,10 +242,6 @@ Update-Module WinSCP
 
 #endregion
 
-#region Intermediate
-
-#endregion
-
 #region Objects
 #Powershell is an object-oriented language. This means that when we get the output of a command it is nicely structured and can be worked with.
 #Contrast this to bash where the output is text that can be manipulated. We don't have to look for patterns or worked but can simply use properties of the object
@@ -339,12 +335,64 @@ Get-CimInstance -class Win32_NetworkAdapterConfiguration -Filter "IpEnabled = 'T
 
 #endregion
 
-#region Moving past simple commands
+#region Intermediate
+
+#region PSRemoting
+#PSRemoting is an interesting feature to Powershell where you can run commands on other computers. You saw we previously queried the event viewer on a computer using the -ComputerName parameter
+#However PSRemoting actually connects to the remote computer itself and runs the commands there. This exposes other way to run commands that we can't on our local computer
+#For example, we talked about having to install the RSAT tools on your computer and then importing the ActiveDirectory module. This allows us to connect to a computer
+#which already has those tools installed (such as a domain controller) and run commands there. 
+#Note, you will not have the ability to run these exact commands against my demo VM, but can edit them for your own.
+
+#It's a good practice to specify credentials you are connecting to with. PSRemoting does not require you to run Powershell as admin. Likely your standard account doesn't have 
+#administrative permissions to your domain so you can specify your admin account here
+$credential = Get-Credential
+
+#Here we specify what we're connecting to. Note that the Powershell prompt changes. You can no see that you're no longer running commands against your local machine but against the remote computer
+#The computer name will be surrounded by brackets such as [TTL1.hq.iu13.local]:
+Enter-PSSession -ComputerName TTL1.hq.iu13.local -Credential $credential
+
+#Earlier we saw that you could run Get-EventLog System -ComputerName TTL1.hq.iu13.local. Now we can see that connecting to the remote computer does the same thing
+Get-EventLog System -Newest 10
+
+#Connecting remotely gives you access to all modules on the remote computer
+Get-Module
+
+#We can query the features and roles of the remote computer. This is also a quick way to reference the role name if you need to install or uninstall it.
+Get-WindowsFeature
+
+#Since my demo vm doesn't have the DNS role installed we will look at installing it. Check out the Name as that is what will be used to install the role, not the Display Name
+#Also important is installing the RSAT tool associated with the role. Otherwise the role will exist on the server but not the management tools
+Get-WindowsFeature *DNS*
+
+#Now that you know the name of the DNS role it can be installed. We will use -IncludeManagement tools so that installs the RSAT tools along with the role
+#Another switch that we could use is -IncludeAllSubFeature. That will include the RSAT tools since they are a sub feature. However, this isn't recommended for all roles
+#Consider IIS which has a large list of sub features and which you would not want to install all.
+#This also shows one of my favorite switches: Verbose. If you run the command without the -Verbose switch it will let you know when the installation is complete
+#With -Verbose specified you will see additional information prepended with VERBOSE: about the status of the command
+Install-WindowsFeature -Name DNS -IncludeManagementTools -Verbose 
+
+#Check to see whether the feature completed
+Get-WindowsFeature *DNS*
+
+#Now you can see the commands that are available for DNS management. You can manage DNS now without installing RSAT tools on your local computer
+Get-Command *DNS*
+
+#Important, exit your PSRemoting session when you are done!
+Exit-PSSession
+
+#endregion
+
+
+#region Simple scripting
 #Powershell doesn't have to be about just single line commands. You can create a quick command to start something or string a long single line command together 
 #to accomplish something. Other situations will require more complex code. This is where variables come in handy.
 #For this example we'll see how you can have multiple values stored in a single variable. 
+#First, let's export some information on services and we can see how importing information into a variable works for a script
+Get-Service "BITS","BranchCache","ibtsiva" | Export-Csv c:\ttl\services.csv -NoTypeInformation
+
 #Similar to how we queried running processes earlier, we can check Windows services as well.
-$services = Get-Service
+$services = Import-Csv C:\ttl\services.csv
 
 #We can see that the services show what the status is, service name, and a description of the service. 
 $services
@@ -418,6 +466,8 @@ Foreach ($student in $students){
 }
 
 #endregion
+
+#endregion 
 
 #region Advanced
 
