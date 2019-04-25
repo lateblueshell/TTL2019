@@ -32,8 +32,9 @@ Function Get-ServiceStatus {
         
                 $ErrorMessage = $_.Exception.Message
                 $FailedItem = $_.Exception.GetType().FullName  
-                $LogEntry = "Unable to start service: " -f $FailedItem, $ErrorMessage
-                Out-File $LogEntry -Append 
+                $LogEntry = "Unable to start service: " + $FailedItem + " " + $ErrorMessage
+                $LogEntry | Out-File $log -Append 
+
         
             }
         

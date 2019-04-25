@@ -335,6 +335,8 @@ Get-CimInstance -class Win32_NetworkAdapterConfiguration -Filter "IpEnabled = 'T
 
 #endregion
 
+#endregion
+
 #region Intermediate
 
 #region PSRemoting
@@ -514,6 +516,9 @@ to the Catch block. We grab the error properties and pass them to the Catch bloc
 and then can be addressed.
 #>
 
+Set-Service -Name BITS -StartupType Disabled
+Stop-Service -Name BITS
+
 $log = "c:\ttl\log.txt"
 Get-Service "BITS","BranchCache","ibtsiva" | Export-Csv c:\ttl\services.csv -NoTypeInformation
 
@@ -530,7 +535,7 @@ $services = Import-Csv C:\ttl\services.csv
             
         Else {
             
-            If ($service.StartType -eq "Automatic"){
+            If ($service.StartType -eq "Disabled"){
 
                 Write-Output "The service $name is not running and should be. Starting service" | Out-File $log -Append 
 
@@ -544,8 +549,8 @@ $services = Import-Csv C:\ttl\services.csv
 
                     $ErrorMessage = $_.Exception.Message
                     $FailedItem = $_.Exception.GetType().FullName  
-                    $LogEntry = "Unable to start service: " -f $FailedItem, $ErrorMessage
-                    Out-File $LogEntry -Append 
+                    $LogEntry = "Unable to start service: " + $FailedItem + " " + $ErrorMessage
+                    $LogEntry | Out-File $log -Append 
 
                 }
 
@@ -559,6 +564,8 @@ $services = Import-Csv C:\ttl\services.csv
     }
 
 Invoke-item $log
+
+Set-Service -Name BITS -StartupType Manual
 
 <#Another way to use the Try/Catch block is Try/Catch/Finally blocks. I've used those in situations where you want a command to run at the end no matter what the earlier result was.
 This shows an example of a function in a class where a finally block is used to dispose or close the connection when it's done. Don't try to run this example was it won't work
@@ -641,8 +648,9 @@ $services = Import-Csv C:\ttl\services.csv
 
                     $ErrorMessage = $_.Exception.Message
                     $FailedItem = $_.Exception.GetType().FullName  
-                    $LogEntry = "Unable to start service: " -f $FailedItem, $ErrorMessage
-                    Out-File $LogEntry -Append 
+                    $LogEntry = "Unable to start service: " + $FailedItem + " " + $ErrorMessage
+                    $LogEntry | Out-File $log -Append 
+
 
                 }
 
@@ -701,8 +709,9 @@ Function Get-ServiceStatus {
         
                 $ErrorMessage = $_.Exception.Message
                 $FailedItem = $_.Exception.GetType().FullName  
-                $LogEntry = "Unable to start service: " -f $FailedItem, $ErrorMessage
-                Out-File $LogEntry -Append 
+                $LogEntry = "Unable to start service: " + $FailedItem + " " + $ErrorMessage
+                $LogEntry | Out-File $log -Append 
+
         
             }
         
@@ -768,8 +777,9 @@ Function Get-ServiceStatus {
         
                 $ErrorMessage = $_.Exception.Message
                 $FailedItem = $_.Exception.GetType().FullName  
-                $LogEntry = "Unable to start service: " -f $FailedItem, $ErrorMessage
-                Out-File $LogEntry -Append 
+                $LogEntry = "Unable to start service: " + $FailedItem + " " + $ErrorMessage
+                $LogEntry | Out-File $log -Append 
+
         
             }
         
@@ -848,11 +858,23 @@ Invoke-item $log
 #region Advanced
 
 #region PSDirect
-$domaincred = Get-Credential
+<# PSDirect is a Hyper-V specific feature that allows you to connect to a VM and run powershell commands without it being accessible across the network. This differs from PSRemoting
+as that requires PSRemoting to be enabled and accessible. PSDirect does need to be run on a Hyper-V server and the guest machine needs to be Server 2016 or newer.
+PSDIrect uses Invoke-Command which runs a script block against the VM. This is very useful for scripting a brand new VM and configuring the networking on it. 
+Note: You will not be able to run these commands
+#>
 
+<#Save the credentials to connect to our Hyper-V host. Then enter into a PSSession from our local computer. This allows us to use the Hyper-V commandlets without needing the role
+installed on our desktop 
+#>
+$domaincred = Get-Credential
 Enter-PSSession -ComputerName "IUHQSHPV003.hq.iu13.local" -Credential $domaincred
 
-$servername = "TTL1"
+<# First we set the VM name that we want to connect to on that server. Then we set the IP configuration on that server. Once this is done it will be accessible on the network.
+The credentials that we are getting are the local admin credentials for the base Windows installation since it's not bound to a domain. You can see that it quickly connects
+and configures the network
+#>
+$VMname = "TTL1"
 $setip = {
     #Operations performed in the console so that remote computer can connect
     $ipaddress = "10.14.14.251"
@@ -865,8 +887,10 @@ $setip = {
     }
 
 $credential = Get-Credential 
-Invoke-Command -VMName $servername -ScriptBlock $setip -Credential $credential
+Invoke-Command -VMName $VMname -ScriptBlock $setip -Credential $credential
 
+<# Next we can set the computer name and restart the VM afterwards. We could technically include this in our $setip block but it is nice to split script blocks out into logical groupings
+#>
 $rename = {
     $ServerName = "TTL1"
 
@@ -875,6 +899,9 @@ $rename = {
 
 Invoke-Command -VMName $servername -ScriptBlock $rename -Credential $credential
 
+
+<# Now we can bind this to the domain. This does need to be in a separate script block since there is a reboot at the end of the previous block. 
+#>
 $bind = {
  
     $domainname = "hq.iu13.local"
@@ -884,6 +911,16 @@ $bind = {
 
 Invoke-Command -VMName $servername -ScriptBlock $bind -Credential $credential
 
+<# Exit the PSSession from our Hyper-V host
+#>
+Exit-PSSession
+
+<# Now we can connect to the VM since it's on the network and bound to our domain. We can run any remaining tasks in this session
+#>
+Enter-PSSession $servername
+
+<# Exit the PSSession when we are finished
+#>
 Exit-PSSession
 
 
