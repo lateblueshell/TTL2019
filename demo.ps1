@@ -802,6 +802,47 @@ Get-ServiceStatus
 
 #endregion
 
+#region Modules
+<# Scripts with functions and parameters are great. That works very well if you have a script that you'll run often. However, what if you want to use that function across multiple scripts?
+The issue you would run into is if you make a change to that function. Then this function needs to be changed across all scripts that it is used in. To simplify this we can use modules.
+We talked about importing public modules previously such as the ActiveDirectory one or online ones such as WinSCP. You can write your own modules and store them on your network if you prefer.
+The simplest way to do this is to take your function and save it as a psm1. This signifies that it is a module. That's the simplest way to make a module. There are additional steps you
+can take and if you're interested in building modules I'd suggest you read the following blog post (http://ramblingcookiemonster.github.io/Building-A-PowerShell-Module/). 
+I've used both Plaster (https://github.com/PowerShell/Plaster) and PlatyPS (https://github.com/PowerShell/platyPS) to help automate setting up a module correctly.
+For the purpose of this demonstration we'll keep it simple.
+The additional power of a module is that it can include multiple functions. This is ideal if you have a group of functions that are related, you can combine them in a function and
+just import that function when needed. When a change is applied to the function you will see that reflected across all the scripts that it is used in. 
+#>
+
+<# To demonstrate this I'll kill my current powershell session so that it forgets all commands imported. We can see that this command does not exist#>
+Get-Command Get-ServiceStatus
+
+<# Here is the default locations that powershell looks for modules. We could copy our module to one of these locations. If we did that, we would not have to specify the location of the
+module, Powershell would just check the default locations and load it if found in one of those. Install-Module will download the module to $env:ProgramFiles\PowerShell\Modules by default
+so that the module is available to all users  
+#>
+$Env:PSModulePath
+
+<# Now we import the module. I'll specify that the module is in our current directory since we didn't copy it to one of the default paths #>
+Import-Module .\Get-ServiceStatus.psm1
+
+<# After importing the function's command is now available. #>
+Get-Command Get-ServiceStatus
+
+<# We can now use this command as we were before #>
+$log = "c:\ttl\log.txt"
+Get-ServiceStatus -servicename "BITS" -log $log
+Invoke-item $log
+
+#endregion
+
+#region Debugging
+
+#See Debugging.ps1
+
+#endregion
+
+
 #endregion 
 
 #region Advanced
@@ -848,3 +889,37 @@ Exit-PSSession
 
 #endregion
 
+#region DSC
+
+$domaincred = Get-Credential
+
+Enter-PSSession -ComputerName "IUHQSHPV003.hq.iu13.local" -Credential $domaincred
+
+$servername = "TTL3"
+$setip = {
+    #Operations performed in the console so that remote computer can connect
+    $ipaddress = "10.14.14.250"
+    $defaultgateway = "10.14.14.1"
+    $DNS = "10.14.14.2,10.14.14.3"
+    
+    Get-NetIPConfiguration | New-NetIPAddress -IPAddress $ipaddress -PrefixLength 24 -DefaultGateway $defaultgateway
+    
+    Get-NetIPConfiguration | Set-DnsClientServerAddress -ServerAddresses ($DNS)
+    }
+
+$credential = Get-Credential 
+Invoke-Command -VMName $servername -ScriptBlock $setip -Credential $
+
+$rename = {
+    $ServerName = "TTL3"
+
+    Rename-Computer -NewName $ServerName -Restart
+}
+
+Invoke-Command -VMName $servername -ScriptBlock $rename -Credential $credential
+
+Invoke-Command -VMName $servername -ScriptBlock {Enable-PSRemoting} -Credential $credential
+
+Test-NetConnection ttl3
+    
+#endregion
