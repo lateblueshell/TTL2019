@@ -1005,42 +1005,8 @@ Invoke-VMScript -VM $sVMname -ScriptText $bind -GuestCredential $VMcred
 
 #region SQL
 
-
-function GetDataSet([string]$SQL, [string]$ConnectionString) {
-
-    "Attempting to execute the following sql query: " + $SQL | Out-File $log -Append
-    [SqlConnection] $conn = new-object SqlConnection($ConnectionString)
-    [SqlDataAdapter] $da = new-object SqlDataAdapter
-    [SqlCommand] $cmd = $conn.CreateCommand()
-    $cmd.CommandText = $SQL
-    $cmd.CommandTimeout = 120
-    $da.SelectCommand = $cmd
-    [DataSet] $ds = new-object DataSet
-
-    Try {
-
-        $conn.Open
-        $da.Fill($ds)
-
-    }
-    Catch {
-        $ErrorMessage = $_.Exception.Message
-        $FailedItem = $_.Exception.GetType().FullName  
-        $LogEntry = "Unable to retrieve dataset: {0}, {1}" -f $FailedItem, $ErrorMessage
-        $LogEntry | Out-File $log -Append          
-    }
-
-    Finally {
-
-        $cmd.Dispose()
-
-        If ($conn.State -ne "Closed") {
-                $conn.close()
-        }
-    }
-
-    return $ds
-}
+<# See Get-DataSet.ps1
+#>
 
 #endregion
 
