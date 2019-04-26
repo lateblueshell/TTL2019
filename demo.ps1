@@ -889,6 +889,11 @@ $setip = {
 $credential = Get-Credential 
 Invoke-Command -VMName $VMname -ScriptBlock $setip -Credential $credential
 
+<# Test-NetConnection is one of my most used commands. It is ping and telnet rolled up in one command without having to enable to Telnet Client feature. We can see that the server is online
+#>
+Test-NetConnection "10.14.14.251"
+
+
 <# Next we can set the computer name and restart the VM afterwards. We could technically include this in our $setip block but it is nice to split script blocks out into logical groupings
 #>
 $rename = {
@@ -897,7 +902,7 @@ $rename = {
     Rename-Computer -NewName $ServerName -Restart
 }
 
-Invoke-Command -VMName $servername -ScriptBlock $rename -Credential $credential
+Invoke-Command -VMName $VMname -ScriptBlock $rename -Credential $credential
 
 
 <# Now we can bind this to the domain. This does need to be in a separate script block since there is a reboot at the end of the previous block. 
@@ -909,7 +914,12 @@ $bind = {
     Add-Computer -DomainName $DomainName -Restart
 }
 
-Invoke-Command -VMName $servername -ScriptBlock $bind -Credential $credential
+Invoke-Command -VMName $VMname -ScriptBlock $bind -Credential $credential
+
+<# Enable PSRemoting
+#>
+Invoke-Command -VMName $VMname -ScriptBlock {Enable-PSRemoting} -Credential $credential
+
 
 <# Exit the PSSession from our Hyper-V host
 #>
@@ -925,6 +935,115 @@ Exit-PSSession
 
 
 #endregion
+
+#region VMware Invoke-VMScript
+<# VMware has a similar method to PSDirect available. This does require that VMware Tools are installed on the VM before you can run the command.
+This means that you will need to have already installed the tools so you can't do this from a bare Windows installation, however you could use it on a deployed
+template. Other than that it functions very simliar to PSDirect and relies on passing script blocks to the vm using Invoke-VMScript
+Note: you will not be able to run these commands
+#>
+
+$VMname = "TTL1"
+$cred = Get-Credential
+
+<# This is the local administrator credentials
+#>
+$VMcred = Get-Credential
+
+<# First you need to install/import the PowerCLI module into your session
+#>
+Import-Module VMware.PowerCLI
+
+<# Connect to your Vsphere instance
+#>
+Connect-VIServer vsphere -Protocol https -Credential $cred
+
+<# If deploying straight from a template you can just power on the VM and wait for it to boot. 
+NOTE: be careful here. If you have the Hyper-V commands loaded and the VMware commands loaded both use Get-VM as a command. This conflicts between the two.
+To avoid a conflict you will likely want to import the PowerCLI module using Import-Module VMware.PowerCLI -Prefix VMware. This adds VMware to the beginning
+of all of the PowerCLI commands and ensures that there is no conflict. This same technique can be used to avoid conflicting Exchange Online and Exchange 
+On Premise commands
+#>
+Get-VM  $VMname | Start-VM
+
+<# We can reuse the script block since the block itself will not change between Hyper-V and VMware
+#>
+$setip = {
+    #Operations performed in the console so that remote computer can connect
+    $ipaddress = "10.14.14.251"
+    $defaultgateway = "10.14.14.1"
+    $DNS = "10.14.14.2,10.14.14.3"
+    
+    Get-NetIPConfiguration | New-NetIPAddress -IPAddress $ipaddress -PrefixLength 24 -DefaultGateway $defaultgateway
+    
+    Get-NetIPConfiguration | Set-DnsClientServerAddress -ServerAddresses ($DNS)
+    }
+
+<# The rest of the commands are extremely similar to the PSDirect commands just using Invoke-VMScript rather than Invoke-Command
+#>
+
+Invoke-VMScript -VM $VMname -ScriptText $setip -GuestCredential $VMcred
+
+$rename = {
+    $ServerName = "TTL1"
+
+    Rename-Computer -NewName $ServerName -Restart
+}
+
+Invoke-VMScript -VM $VMname -ScriptText $rename -GuestCredential $VMcred
+
+$bind = {
+ 
+    $domainname = "hq.iu13.local"
+
+    Add-Computer -DomainName $DomainName -Restart
+}
+
+Invoke-VMScript -VM $sVMname -ScriptText $bind -GuestCredential $VMcred
+
+#endregion
+
+#region SQL
+
+
+function GetDataSet([string]$SQL, [string]$ConnectionString) {
+
+    "Attempting to execute the following sql query: " + $SQL | Out-File $log -Append
+    [SqlConnection] $conn = new-object SqlConnection($ConnectionString)
+    [SqlDataAdapter] $da = new-object SqlDataAdapter
+    [SqlCommand] $cmd = $conn.CreateCommand()
+    $cmd.CommandText = $SQL
+    $cmd.CommandTimeout = 120
+    $da.SelectCommand = $cmd
+    [DataSet] $ds = new-object DataSet
+
+    Try {
+
+        $conn.Open
+        $da.Fill($ds)
+
+    }
+    Catch {
+        $ErrorMessage = $_.Exception.Message
+        $FailedItem = $_.Exception.GetType().FullName  
+        $LogEntry = "Unable to retrieve dataset: {0}, {1}" -f $FailedItem, $ErrorMessage
+        $LogEntry | Out-File $log -Append          
+    }
+
+    Finally {
+
+        $cmd.Dispose()
+
+        If ($conn.State -ne "Closed") {
+                $conn.close()
+        }
+    }
+
+    return $ds
+}
+
+#endregion
+
 
 #region DSC
 
@@ -957,6 +1076,8 @@ Invoke-Command -VMName $servername -ScriptBlock $rename -Credential $credential
 
 Invoke-Command -VMName $servername -ScriptBlock {Enable-PSRemoting} -Credential $credential
 
-Test-NetConnection ttl3
+Test-NetConnection TTL3
     
+#endregion
+
 #endregion
