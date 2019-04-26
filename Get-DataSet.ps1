@@ -20,7 +20,7 @@ This does provide an excellent way to show how debugging is helpful. I'll fully 
 I used debugging to sort through a few issues that I ran into. It is extrememely helpful to step into this function and examine the lines to ensure that you are
 receiving the information how you expect to.
 #>
-
+<#
 [dataset] $dataset
 
 function Get-DataSet([string]$SQL, [string]$ConnectionString) {
@@ -80,7 +80,7 @@ For that we would use New-ADUser -samaccountname $User.Samaccountname -password 
 This way we can use the object to build all of our account information based off of both database information and other information that we know of outside
 of the database
 #>
-
+<#
 $dataset = Get-DataSet -SQL "SELECT * FROM [TTL2019].[dbo].[Presentations]" -ConnectionString "server=IUHQVSQL009\TECH;uid=_ttl;pwd=notmyrealpassword"
 
 foreach($row in $dataset.Tables[0].Rows) {
@@ -102,3 +102,36 @@ foreach($row in $dataset.Tables[0].Rows) {
 
 }
 
+#>
+
+
+
+Function Save-LogEntry([string] $PreviousValue, [string] $NewValue, [string] $message) {
+
+    $date = Get-Date -format "dd-MMM-yyyy HH:mm:ss"
+    [SqlConnection] $conn = new-object SqlConnection("server=IUHQVSQL009\TECH;uid=_ttl;pwd=notmyrealpassword")
+    $conn.Open
+    [SqlDataAdapter] $da = new-object SqlDataAdapter
+    [SqlCommand] $cmd = $conn.CreateCommand()
+    $cmd.CommandText =            
+    "INSERT INTO [TTL2019].[dbo].[Log] ([Date],[PreviousValue],[NewValue],[Message])
+        VALUES (@Date,@PreviousValue,@NewValue,@Message)"
+    $cmd.Parameters.AddWithValue("@Date", $date)
+    $cmd.Parameters.AddWithValue("@PreviousValue", $PreviousValue)
+    $cmd.Parameters.AddWithValue("@NewValue", $NewValue)
+    $cmd.Parameters.AddWithValue("@Message", $Message)
+    $cmd.Connection.Open()
+    $cmd.ExecuteNonQuery()
+    $cmd.Dispose()
+    $conn.Close()
+
+}
+
+
+
+Function Add-LogEntry([string] $PreviousValue, [string] $NewValue, [string] $message) {
+   Save-LogEntry($PreviousValue, $NewValue, $message)
+}
+
+
+ Add-LogEntry -PreviousValue "Old" -NewValue "New" -message "Changing values"
