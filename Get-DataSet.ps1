@@ -20,7 +20,7 @@ This does provide an excellent way to show how debugging is helpful. I'll fully 
 I used debugging to sort through a few issues that I ran into. It is extrememely helpful to step into this function and examine the lines to ensure that you are
 receiving the information how you expect to.
 #>
-<#
+
 [dataset] $dataset
 
 function Get-DataSet([string]$SQL, [string]$ConnectionString) {
@@ -80,7 +80,7 @@ For that we would use New-ADUser -samaccountname $User.Samaccountname -password 
 This way we can use the object to build all of our account information based off of both database information and other information that we know of outside
 of the database
 #>
-<#
+
 $dataset = Get-DataSet -SQL "SELECT * FROM [TTL2019].[dbo].[Presentations]" -ConnectionString "server=IUHQVSQL009\TECH;uid=_ttl;pwd=notmyrealpassword"
 
 foreach($row in $dataset.Tables[0].Rows) {
@@ -102,9 +102,13 @@ foreach($row in $dataset.Tables[0].Rows) {
 
 }
 
+
+
+
+<# Besides selecting information from SQL we can also insert (as well as update and delete) data. I've found this useful for logging to SQL instead of a text file.
+The advantage of logging to SQL is that we can quickly and easily query the log file. I can sort by a date range, search by error message, or message severity. 
+This also can provide a central logging location rather than files across multiple servers or folders. 
 #>
-
-
 
 Function Save-LogEntry([string] $PreviousValue, [string] $NewValue, [string] $message) {
 
@@ -128,10 +132,4 @@ Function Save-LogEntry([string] $PreviousValue, [string] $NewValue, [string] $me
 }
 
 
-
-Function Add-LogEntry([string] $PreviousValue, [string] $NewValue, [string] $message) {
-   Save-LogEntry($PreviousValue, $NewValue, $message)
-}
-
-
- Add-LogEntry -PreviousValue "Old" -NewValue "New" -message "Changing values"
+Save-LogEntry -PreviousValue "Old" -NewValue "New" -message "Changing values"

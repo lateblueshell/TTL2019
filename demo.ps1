@@ -6,13 +6,15 @@ Return "This is a demo script, please don't just run me"
 #Launch as Admin
 
 #Set Execution Policy 
-#The default execution policy for Powershell is Restricted. This will permit individual commands to be run but not scripts. This includes configuration files, modules, and profiles. 
-#Windows Servers default to RemoteSigned. This allows scripts to run but requires a digital signature when downloaded from teh internet. Scripts can be unblocked using Unblock-File
-#For testing set the ExecutionPolicy to Unrestricted.
+<#The default execution policy for Powershell is Restricted. This will permit individual commands to be run but not scripts. This includes configuration files, modules, and profiles. 
+Windows Servers default to RemoteSigned. This allows scripts to run but requires a digital signature when downloaded from the internet. Scripts can be unblocked using Unblock-File
+For testing set the ExecutionPolicy to Unrestricted.
+#>
 Set-ExecutionPolicy -ExecutionPolicy $unrestricted
 
-#A good first step is to update the help file. Powershell ships with a bare skeleton of help and will refer to downloading the rest of the files. This may take some time
-#Updating help is a command that requires administrative access. 
+<#A good first step is to update the help file. Powershell ships with a bare skeleton of help and will refer to downloading the rest of the files. This may take some time
+Updating help is a command that requires administrative access. 
+#>
 Update-Help
 
 #endregion
@@ -24,14 +26,18 @@ Get-Help
 #Get-Help needs a command to show the information about that command. For example we can look at the information on the Update-Help command we ran earlier
 Get-Help Update-Help 
 
-#Update help is a cool command but lets look at a real life command that you can use. Get-Command is a command that you can use to find Powershell commands. In this case we will find command associated with Windows Event Logs
+<# Update help is a fine beginning command but lets look at a real life command that you can use. Get-Command is a command that you can use to find Powershell commands. 
+In this case we will find command associated with Windows Event Logs
+#>
 Get-Command *eventlog*
 
-#Note the command names returned. These follow the Verb-Noun structure which make them fairly easy to read and understand. Get-, Clear-, New-, Remove- are all actions that you recognize.
-#Most commands follow this structure, even third party modules. You can check and see the full list of "approved" verbs by running Get-Verb. Nothing forces people to use those verbs. 
+<# Note the command names returned. These follow the Verb-Noun structure which make them fairly easy to read and understand. Get-, Clear-, New-, Remove- are all actions that you recognize.
+Most commands follow this structure, even third party modules. You can check and see the full list of "approved" verbs by running Get-Verb. Nothing forces people to use those verbs. 
+#>
 
-#Get-EventLog is an easily acccessible command. Look up the help files for Get-EventLog. Note that these give two different sets of Syntax that can be used. This shows the types of input that
-#can be accepted. Each of these are parameters that can be added to the command which we will cover in a bit. It also gives a description and links to the online version. 
+<# Get-EventLog is an easily acccessible command. Look up the help files for Get-EventLog. Note that these give two different sets of Syntax that can be used. This shows the types of input that
+can be accepted. Each of these are parameters that can be added to the command which we will cover in a bit. It also gives a description and links to the online version. 
+#>
 Get-Help Get-EventLog
 
 #We can add the -Examples parameter to Get-Help to get examples of how to use the Get-EventLog command
@@ -48,8 +54,9 @@ Get-Help Get-EventLog -Online
 #We can see from the help file that -List is a parameter of Get-EventLog. According to the Full help file it "Indicates that this cmdlet gets a list of event logs on the computer." Lets see what event logs are available
 Get-EventLog -List
 
-#According to the list we should be able to pull back System logs. Be careful though, if you run this it will bring back all System logs. That is quite a few. 
-#If you run this and tire of waiting you can use Ctrl+C to cancel the operation
+<# According to the list we should be able to pull back System logs. Be careful though, if you run this it will bring back all System logs. That is quite a few. 
+If you run this and tire of waiting you can use Ctrl+C to cancel the operation
+#>
 Get-EventLog System
 
 #Instead, we can use parameters to cut down on the amount of information we're receiving. This grabs only the 10 most recent events in the System log
@@ -61,11 +68,15 @@ Get-EventLog System -Newest 10 -EntryType Error
 #We can actually search for both of those because the -EntryType parameter accepts multiple parameters
 Get-EventLog System -Newest 10 -EntryType Error,Warning
 
-#While the standard output for Get-EventLog is in table format, it may be easier to read all of the information if it is in list form. If we pipe the command into Format-List this will
-#present the information differently. Note that the information is now in rows and grouped by entries. Each entry will have its own set of rows.
+<# While the standard output for Get-EventLog is in table format, it may be easier to read all of the information if it is in list form. If we pipe the command into Format-List this will
+present the information differently. Note that the information is now in rows and grouped by entries. Each entry will have its own set of rows.
+#>
 Get-EventLog System -Newest 1 -EntryType Error | Format-List
 
-#We can can also use parameters to specify another computer to connect to and read logs from. Note this will work for me, not for you
+<# We can can also use parameters to specify another computer to connect to and read logs from. This will use your current logged in user similar to how
+Event Viewer connects to a remote computer. If you need to connect using a different account I will cover that later.
+Note this will work for me, not for you
+#>
 Get-EventLog System -Newest 10 -EntryType Error -ComputerName "TTL1.hq.iu13.local"
 
 #We can use this output and format it as a list as well.
@@ -89,36 +100,55 @@ Get-Help ls
 #We can see that gci is another alias as well
 Get-Alias -Definition "Get-ChildItem"
 
-#You can create aliases yourself using New-Alias but I wouldn't recommend it. The aliases are only available to you and not ported to any other computer unless you use Export-Alias. 
-#Aliases are discouraged in scripts. They are easy to type when you're just running a command, but a script you're likely to come back to or someone else will read it.
-#In that case aliases make it harder to understand the commands. It's advised to just type out Get-ChildItem. After all, that's what tab completion is for, right?
+<# You can create aliases yourself using New-Alias but I wouldn't recommend it. The aliases are only available to you and not ported to any other computer unless you use Export-Alias. 
+Aliases are discouraged in scripts. They are easy to type when you're just running a command, but a script you're likely to come back to or someone else will read it.
+In that case aliases make it harder to understand the commands. It's advised to just type out Get-ChildItem. After all, that's what tab completion is for, right?
+#>
 #endregion
 
 #region Making things easy
-#Ok so you see how to find parameters using help and how to use them. That's hard to grasp at first though. Plus for some people working in a command line only can get tiring.
-#Sometimes you just want to click something, right? (We are Windows admins after all). Show-Command is helpful and gives you boxes to fill out. Once you fill them out you can click Run
-#Your command is then populated with all the parameters filled out. This can be useful for learning 
+<# Ok so you see how to find parameters using help and how to use them. That's hard to grasp at first though. Plus for some people working in a command line only can get tiring.
+Sometimes you just want to click something, right? (We are working with Windows after all). Show-Command is helpful and gives you boxes to fill out. 
+Once you fill them out you can click Run. Your command is then populated with all the parameters filled out. This can be useful for learning 
+#>
 Show-Command Get-EventLog
 
 #endregion
 
 #region Errors
-#Errors will happen. I run into them all the time whether I'm mistyping something or just running the wrong command. The biggest thing is learning how to read them. 
-#Powershell for the most part has errors that make sense, it's just taking the time to read and understand them. 
+<# Errors will happen. I run into them all the time whether I'm mistyping something or just running the wrong command. The biggest thing is learning how to read them. 
+Powershell for the most part has errors that make sense, it's just taking the time to read and understand them. 
+#>
 
-#Bad Command. We can see that this isn't a command. Good time to use Get-Command and see if we just didn't type the right name
-#The term 'Get_Service' is not recognized as the name of a cmdlet, function, script file, or operable program
+<# Bad Command. We can see that this isn't a command. Good time to use Get-Command and see if we just didn't type the right name
+The term 'Get_Service' is not recognized as the name of a cmdlet, function, script file, or operable program. Powershell tries to aid us by giving suggestoins
+such as checking the spelling or path to something. That's a good indicator that either we've typed a command that doesn't exist, or doesn't exist
+within the commands we have available currently. 
+#>
 Get_Service
 
-#This can happen with parameters that need to be in certain formats. If you check Get-Date, the -Date parameter needs to be a Date/Time format. We're specifying it using a bad date and time
-#You can see that Powershell attempts to convert it to the correct format. We can even feed it dates that aren't in that format ("May 1") and it will convert to date/time. However this is
-#bad enough it won't work
-#Cannot bind parameter 'Date'. Cannot convert value "May_1" to type "System.DateTime"
+<# This can happen with parameters that need to be in certain formats. If you check Get-Date, the -Date parameter needs to be a Date/Time format. We're specifying it using a bad date and time
+You can see that Powershell attempts to convert it to the correct format. We can even feed it dates that aren't in that format ("May 1") and it will convert to date/time. However this is
+bad enough it won't work
+Cannot bind parameter 'Date'. Cannot convert value "May_1" to type "System.DateTime". I find this helpful because it tells us what format is expected. 
+It's simple enough to Google System.DateTime examples (or Powershell System.DateTime examples) and find more than a few blogs and documentation on what is 
+acceptable in that format. 
+#>
 Get-Date -Date "May_1"
 
-#Don't be scared of errors. They happen often enough especially as you are learning. Just take the time to read them and learn what they're saying. If you need to, Google them and there's often examples
-#Worst case as a presenter once said, you can change the error text color to Green. It makes you feel a lot less like red ink on a test
+<# Don't be scared of errors. They happen often enough especially as you are learning. Just take the time to read them and learn what they're saying. If you need to, Google them and there's often examples
+Worst case as a presenter once said, you can change the error text color to Green. It makes you feel a lot less like red ink on a test
+#>
 $host.PrivateData.ErrorForegroundColor = 'Green'
+
+<# here is another common mistake. We can see that Powershell tells us that the file doesn't exist. I see that commonly when you are running Powershell
+as an admin which uses a separate admin account. Files that were downloaded or saved to your normal provile are not in the profile folders under your admin account
+#>
+Get-ChildItem C:\TTL3
+
+<# The fun thing is we can test that file path and return a boolean value of whether it exists or not. You'll see that in use in a later script in this presentation
+#>
+Test-Path c:\ttl3
 
 #endregion
 
@@ -1010,6 +1040,118 @@ Invoke-VMScript -VM $sVMname -ScriptText $bind -GuestCredential $VMcred
 
 #endregion
 
+#region Other Logging
+<# So far we've covered logging to a text file and to a SQL database. Text files are simple and easy but are not centralized and can only contain information in 
+a very simple structure. SQL databases are centralized but require setting up a database and training techs who should be monitoring the database. Documentation is 
+fine for that, but it does make it intimidating for techs to check and I've found that means they will do it less. I've found that CSV files are a middle ground.
+They allow for multiple columns and sorting similar to SQL but are more accessible for techs to check. They are not centralized, but could be emailed to a distribution
+group if that was needed. 
+
+One of the main issues I ran into with exporting to a csv file is performance. For a script that would output about 2500 lines of logging I was seeing it take about 
+15 minutes to actually run due to the logging. This was important data I wanted to monitor but that's far too long to run (in my opinion, plus I'm always curious
+on how to do things better). What I found was that the export-csv -append was quite costly because every time it had to load the csv file and then skip to the bottom
+to add the new line. My example code for that is below.
+
+Great, so what are other options? Next I tried an array figuring that adding the data to an array which is in memory rather than a file on disk would be much less
+costly. In testing that minorly improved performance by a minute or so but not nearly the performance impact I expected. In doing some more research I found
+that the array suffered from the same issue as exporting to csv. Every time you called the array it had to load it again and skip to the end of the array and add the
+new values. So my original issue wasn't really disk performance but loading the object over and over again, 2500 or so times.
+#>
+Function Insert-LogEntry {
+        param [string]$StudentID
+        param [string]$StudentName
+        param [string]$PreviousValue
+        param [string]$NewValue
+        param [string]$Message
+        param [string]Severity
+
+        [PSCustomObject]@{
+        StudentID = $StudentID
+		StudentName = $StudentName
+		PreviousValue = $PreviousValue
+		NewValue = $NewValue
+		Message = $Message
+		Severity = $Severity
+        } | Export-Csv $log -Append
+}
+
+<# In my research I came across array lists. Array lists are treated differently and were suited for what I was trying to do. So instead of doing a += to my array,
+I can use an .add method to the array. I'm going through and adding the values to the array list during the script run then at the end of the script I take the whole
+array list object and export that to csv. This dramatically reduced script run time with it finishing in 4 minutes instead of 14/15. 
+
+Lesson learned, just because there are methods and ways of doing things doesn't mean they are the best suited for the job. Be curious and research. I'd rather spend
+the time to fix the issue on this script when that time will pay off for the next 15 scripts that I'll write. 
+#>
+
+[System.Collections.ArrayList] $Log = @{}
+Function Insert-LogEntry {
+    param [string]$StudentID
+    param [string]$StudentName
+    param [string]$PreviousValue
+    param [string]$NewValue
+    param [string]$Message
+    param [string]Severity
+
+	$Log.add([pscustomobject]@{
+		StudentID = $StudentID
+		StudentName = $StudentName
+		PreviousValue = $PreviousValue
+		NewValue = $NewValue
+		Message = $Message
+		Severity = $Severity
+    } )
+    
+    
+
+}
+
+Function ExportLogEntries{
+
+   $Log |  Export-Csv -Path $Logpath -NoTypeInformation
+}
+
+<# Another way we can log is to Microsoft Teams using a WebHook. WebHooks are really easy to enable for a Teams channel and they will provide you a URL to connec to.
+I've found this useful for logging info that multiple people may be interested in, but not interested enough to need immediate notification. They can check the 
+Teams channel at their leisure and view the history as well. A good example of this is when a user is automatically created or expired. 
+
+You can find different json examples across the internet to format the notification how you want. I've passed the notification parameters so that I can generate
+different messages for different actions in the script. The function then uses a REST method to pass the notification to the WebHook and it's immediately posted
+to Teams. 
+#>
+
+Function Send-TeamsNotification {
+    param [string]$displayname, 
+    param [string]$action
+
+    $uri = 'https://MyWebHookURL.com'
+
+    If ($action -eq "Remove"){
+
+
+
+        $body = ConvertTo-Json -Depth 4 @{
+            title = 'User disabled'
+            sections = @(
+                @{
+                    activityTitle = 'ADUpdate'
+                    activitySubtitle = $displayname + ' account was disabled'
+                    activityText = 'A user has been remove'
+                    activityImage = 'http://URL'
+                }
+            )
+
+        }
+    
+    Invoke-restMethod -uri $uri -Method Post -body $body -ContentType 'application/json'
+    }
+}
+
+#endregion
+
+#region Oracle
+
+<# See Get-OrcaleData.ps1
+#>
 
 #region DSC
 
