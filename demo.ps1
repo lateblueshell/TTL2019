@@ -1153,6 +1153,51 @@ Function Send-TeamsNotification {
 <# See Get-OrcaleData.ps1
 #>
 
+#region Pester
+<# To this point we've written a lot of code. Once we moved into scripts we created some scripts that will likely be scheduled to run automatically.
+Often these types of scripts will need updated to change how they operate or add more functionality later on. First, that highlights the importance of
+both writing code that is readable and including comments where needed. This also means that you may not be the only one updating the code, it may be a 
+coworker or another person in your position.
+
+Updating code always brings the risk of breaking what it already accomplishes. By adding other functions you may disrupt the existing functions without
+realizing that. Pester is a way to run tests against your code for unit, integration and acceptance testing. This allows you to write a set of tests and 
+include them along side the code itself. Then, when the code is updated the same tests (and new tests for your new code) will be run and ensure that
+the previous functions and new functions work. If the tests are written well then you can be confident that everything works and the code can be updated
+in production. Taken a step farther, tests can be automatically run when code is committed as part of a CI/CD pipeline. Once the tests pass then the code
+can be automatically updated in production.
+#>
+
+<# Pester 3.4 is included with Windows 10. For the basis of this talk I'm writing it around Pester 3.4 even though there are later versions available 
+in the Powershell Gallery. To install a later version you can use Install-Module to install it from the Gallery. We'll just use what is already installed
+so we are loading it using Import-Module
+#> 
+
+Import-Module Pester
+
+<# We can see that Pester is loaded and see any additional versions if you've already installed a newer version along side. 
+#>
+Get-Module -List Pester
+
+<# Looking at the commands in Pester you may notice that most are not written in Verb-Noun form like the other Powershell commands we have been using. 
+Pester is written using it's own Domain Specific Language which is why it does not use commands like we are used to. However, you can run Powershell
+commands in a Pester test which we will use to test our code.
+#>
+
+Get-Command -Module Pester
+
+<# As usual, it's good to start and look at the commands. This command runs the Pester test which is written in a separate file that would be included
+with your other scripts and modules. 
+#>
+
+Get-Help Invoke-Pester -Full
+
+<# Here we invoke the Pester test against our separate test file. The results are returned to our existing session and we can see the success and 
+failures of the individual tests
+#>
+
+Invoke-Pester .\Get-ServiceStatus.Test.ps1
+#endregion
+
 #region DSC
 
 $domaincred = Get-Credential
