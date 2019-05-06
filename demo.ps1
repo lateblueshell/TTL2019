@@ -3,17 +3,41 @@ Return "This is a demo script, please don't just run me"
 #region Beginner
 
 #region Getting started
-#Launch as Admin
+<# Pick an environment. Built into Windows is two options, the Powershell shell prompt and the Powershell ISE. The shell prompt works well for running
+single lines or a few lines of code. This runs into limitations when you want to write a script. Technically you can write a Powershell script in whatever
+text editor you want from Notepad on up (Notepad++ provides colors to mark between commands and values). I can recommend starting with Powershell ISE.
+If you want to follow along with this presentation then ISE will work best for you. I can also recommend VSCode which adds even more features especially 
+for complex scripts. This works for all versions of Powershell where as the ISE only works up to Powershell 5.1 and does not include support for 
+Powershell Core 6 and higher.
+#>
+
+<# Launch your editor as Admin. You can run many Powershell commands as your standard user account for gathering information. As with many other parts of Windows
+when you need to make changes then they need to be under an elevated prompt. You will need to run as admin to follow along with this demonstration.
+#>
+
+<# To run a full script you can hit F5 or the Play button. I don't recommend that on this script as it will error out. To run an individual line you can
+either highlight the line or click the number beside the line then hit F8. F8 also works when you select multiple lines.
+#>
 
 #Set Execution Policy 
 <#The default execution policy for Powershell is Restricted. This will permit individual commands to be run but not scripts. This includes configuration files, modules, and profiles. 
 Windows Servers default to RemoteSigned. This allows scripts to run but requires a digital signature when downloaded from the internet. Scripts can be unblocked using Unblock-File
 For testing set the ExecutionPolicy to Unrestricted.
 #>
-Set-ExecutionPolicy -ExecutionPolicy $unrestricted
+Set-ExecutionPolicy -ExecutionPolicy Unrestricted
+
+<# If you run into an error that says this is overriden by another execution policy we can see what that policy is. Just uncomment this line below
+#>
+
+#Get-ExecutionPolicy -List
+
+<# If you see another execution policy that is set more restrictive then you can name that scope and set it individually. For example, the line below
+#>
+#Set-ExecutionPolicy -Scope Process -ExecutionPolicy Unrestricted
 
 <#A good first step is to update the help file. Powershell ships with a bare skeleton of help and will refer to downloading the rest of the files. This may take some time
-Updating help is a command that requires administrative access. 
+Updating help is a command that requires administrative access. Note, occasionally some modules may error out if the online version of the help files is not 
+currently available. Don't worry about this
 #>
 Update-Help
 
@@ -23,7 +47,11 @@ Update-Help
 #Now that we have updated help files it's a good time to find out what the help files do. This gives an overview on how to use help files
 Get-Help
 
-#Get-Help needs a command to show the information about that command. For example we can look at the information on the Update-Help command we ran earlier
+<# Get-Help needs a command to show the information about that command. For example we can look at the information on the Update-Help command we ran earlier.
+Note that there is multiple syntax options. Each command can have multiple sets of parameters based on how it is being run. The syntax examples show which 
+parameters are required. These also show the parameters that allow for multiple values using []. Switches are shown such as -Force that do not require a value
+but by specifying those are used.
+#>
 Get-Help Update-Help 
 
 <# Update help is a fine beginning command but lets look at a real life command that you can use. Get-Command is a command that you can use to find Powershell commands. 
@@ -77,10 +105,10 @@ Get-EventLog System -Newest 1 -EntryType Error | Format-List
 Event Viewer connects to a remote computer. If you need to connect using a different account I will cover that later.
 Note this will work for me, not for you
 #>
-Get-EventLog System -Newest 10 -EntryType Error -ComputerName "TTL1.hq.iu13.local"
+Get-EventLog System -Newest 10 -EntryType Error -ComputerName (Read-Host)
 
 #We can use this output and format it as a list as well.
-Get-EventLog System -Newest 10 -EntryType Error -ComputerName "TTL1.hq.iu13.local" | Format-List
+Get-EventLog System -Newest 10 -EntryType Error -ComputerName (Read-Host) | Format-List
 
 #endregion
 
@@ -109,7 +137,13 @@ In that case aliases make it harder to understand the commands. It's advised to 
 #region Making things easy
 <# Ok so you see how to find parameters using help and how to use them. That's hard to grasp at first though. Plus for some people working in a command line only can get tiring.
 Sometimes you just want to click something, right? (We are working with Windows after all). Show-Command is helpful and gives you boxes to fill out. 
-Once you fill them out you can click Run. Your command is then populated with all the parameters filled out. This can be useful for learning 
+Once you fill them out you can click Run. Your command is then populated with all the parameters filled out. This can be useful for learning new commands.
+Note that there is tabs to shows you the different parameter sets. Once you get the command built, copy it and then run it. Save what you copied in your 
+documentation so that next time you can just run that. 
+
+In many online services such as Exchange you can enable commandlet logging. This will start a transcript of what you are clicking and accomplishing. You can
+then take the transcript and use it to understand what commands are being run in the background. Then next time you can quickly run the command rather than 
+clicking around everywhere.
 #>
 Show-Command Get-EventLog
 
@@ -210,7 +244,7 @@ Get-Process | Export-Csv C:\TTL\processes.csv
 Invoke-Item C:\ttl\processes.csv
 
 #We can actually specify that we want all of the information for each process. This is much easier to see in a list format than table
-Get-Process | Format-List *
+Get-Process | Select-Object -First 1 | Format-List *
 
 #We can also import information from CSV files. As you see, since we exported all of the properties to the CSV file, now we see all the properties when importing. 
 Import-Csv C:\TTL\Processes.csv
@@ -278,6 +312,10 @@ Update-Module WinSCP
 #Out-GridView provides a nice way to visualize what the properties look like. Run this and look at the column names. These are all attributes of the object
 Get-Process | Out-GridView
 
+<# Alternately we can look at our CSV file which has all of the properties of the processes
+#>
+Invoke-Item C:\ttl\processes.csv
+
 #To make things easier we'll save the output of Get-Process to a variable. It's less typing and will demonstrate how you can work with objects in different ways
 $Processes = Get-Process
 
@@ -333,6 +371,11 @@ $Processes | Select-Object Name, ID, CPU | Get-Member
 #A logical next ste would be to pass those values out to a file to store or send to someone requesting that information
 $Processes | Select-Object Name, ID, CPU | Out-File C:\TTL\processnames.txt
 
+<# We see that the file contains the same info as the object
+#>
+
+Invoke-item C:\ttl\processnames.txt
+
 #When we look at what is left in the pipeline after Out-File we see that there is no object passed on. The object has been fully used and nothing is passed along
 #This is common for when files are exported. It gives a good look at what happens to the object as it passes along the pipeline
 $Processes | Select-Object Name, ID, CPU | Out-File C:\TTL\processnames.txt | Get-Member
@@ -346,6 +389,10 @@ Get-Help Get-CimInstance
 #Filtering helps narrow down the information that you are looking for. Rarely would you want to pull back every single AD account whne you're only looking for a single one
 #Filtering in the original command  is faster as it only pulls back what matches your filter. Here is an example of filtering on the "left" side
 Get-CimInstance -class Win32_NetworkAdapterConfiguration -Filter "IpEnabled = 'True' " 
+
+<# Without the filtering we would have pulled back much more information that we didn't need
+#>
+Get-CimInstance -class Win32_NetworkAdapterConfiguration
 
 #Here is an example of filtering on the "right" side. This brings back all of the network adapters and then checks through them to find which meets our criteria. 
 #Note that we get the same exact results 
@@ -379,6 +426,10 @@ Get-CimInstance -class Win32_NetworkAdapterConfiguration -Filter "IpEnabled = 'T
 #It's a good practice to specify credentials you are connecting to with. PSRemoting does not require you to run Powershell as admin. Likely your standard account doesn't have 
 #administrative permissions to your domain so you can specify your admin account here
 $credential = Get-Credential
+
+<# We can look at this credential object. The username is in clear text but the password is stored as a secure string. This is how Powershell expects credentials
+although VMware and some others will accept plain text passwords. That's not good practice though.
+#>
 
 #Here we specify what we're connecting to. Note that the Powershell prompt changes. You can no see that you're no longer running commands against your local machine but against the remote computer
 #The computer name will be surrounded by brackets such as [TTL1.hq.iu13.local]:
