@@ -1,6 +1,6 @@
 <#
 #>
-function DoSomething ()
+function PretendToDoSomething ()
 {
   [CmdletBinding()]
   param

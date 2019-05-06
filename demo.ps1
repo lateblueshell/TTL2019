@@ -1153,6 +1153,8 @@ Function Send-TeamsNotification {
 <# See Get-OrcaleData.ps1
 #>
 
+#endregion
+
 #region Pester
 <# To this point we've written a lot of code. Once we moved into scripts we created some scripts that will likely be scheduled to run automatically.
 Often these types of scripts will need updated to change how they operate or add more functionality later on. First, that highlights the importance of
@@ -1197,9 +1199,17 @@ failures of the individual tests
 
 Invoke-Pester .\Get-ServiceStatus.Test.ps1
 
-<# Now we can 
+<# Now we can address some unit testing. Unit testing is done in isolation and attempts to ensure that our code works without worrying if there is an 
+underlying issue with other functions that we call. In our example the function tests a path to ensure that the file is there. We don't want to worry if the
+file doesn't exist during our test, just make sure that if the file is there that the rest of our code works. To do this we'll mock the function so that the 
+code thinks that the file exists. This allows us to test the rest of our code without worrying about an issue with Test-Path. 
+
+This unit test was adapted from this series on Pester testing
 https://www.red-gate.com/simple-talk/sysadmin/powershell/advanced-testing-of-your-powershell-code-with-pester/
 #>
+
+Invoke-Pester .\MockUnitTesting.test.ps1
+
 #endregion
 
 #region Bot/Chatops
