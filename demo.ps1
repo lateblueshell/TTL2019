@@ -955,7 +955,7 @@ Enter-PSSession -ComputerName "IUHQSHPV003.hq.iu13.local" -Credential $domaincre
 The credentials that we are getting are the local admin credentials for the base Windows installation since it's not bound to a domain. You can see that it quickly connects
 and configures the network
 #>
-$VMname = "TTL1"
+$VMname = "TTL2"
 $setip = {
     #Operations performed in the console so that remote computer can connect
     $ipaddress = "10.14.14.251"
@@ -1388,7 +1388,7 @@ Enter-PSSession -ComputerName ttl3.hq.iu13.local -Credential $domaincred
 
 <# Change directories and run our script. This creates a new HelloWorld subfolder and puts the compiled mof in that folder
 #>
-cd c:\dsc
+Set-Location c:\dsc
 
 . C:\dsc\HelloWorld.ps1
 HelloWorld

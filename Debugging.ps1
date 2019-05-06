@@ -33,4 +33,4 @@ Function Math-Exponent([Int]$number, [Int]$power){
     }
   }
   
-  #Math-Exponent -number 2 -power 2  # Should output 4.
+  Math-Exponent -number 2 -power 2  # Should output 4.
