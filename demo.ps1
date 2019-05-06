@@ -1196,10 +1196,64 @@ failures of the individual tests
 #>
 
 Invoke-Pester .\Get-ServiceStatus.Test.ps1
+
+<# Now we can 
+https://www.red-gate.com/simple-talk/sysadmin/powershell/advanced-testing-of-your-powershell-code-with-pester/
+#>
+#endregion
+
+#region Bot/Chatops
+<# We've seen some useful ways to build and run scripts. However for the most part scripts are run from a shell or task scheduler. This doesn't give much visibility
+or flexibility for people to run them. We could build a gui for the script but that doesn't really provide visibility into who ran a script and what it did. 
+They also require connectivity to the network to be able to run the script itself. Another way around some of these limitations is a practice called ChatOps.
+ChatOps uses a bot that integrates into your existing chat infrastructure (Slack, Teams, Skype For Business Online) and runs powershell modules. I'll focus on 
+PoshBot which is a Powershell project created by Brandon Olin who has advocated for this practice. PoshBot ties into the existing bot infrastructure of Slack or 
+Teams uses them to pass commands to a back end script. This script can execute modules based on what has been imported, a schedule, and the permissions of the user
+issuing the command. 
+
+There are several positive things about this approach. First, the visibility of the command is very useful. By tying the bot into an existing chat channel where
+users are already looking then other users will see scripts being run. For example, if a server is experiencing performance issues and a user gets the performance
+graphs in chat that allows others to use that copy and not have to request multiple graphs from a server that is already suffering. It also brings visibility 
+that someone is looking at the server and others can correlate issues that they have seen as well. This also fits naturally with having the data and having 
+discussion around the issue in the same area. 
+
+ChatOps also extends out the management capabilities outside of the network. Since chat clients have mobile apps this allows management via a mobile app.
+The user is already authenticated to the app so the bot understands their roles and permissions. For example, that Tomcat server that always freaks out and
+needs rebooted when you are away from home can be restarted using a command from your mobile chat client. 
+
+ChatOps talk by Brandon Olin
+https://www.youtube.com/watch?v=Mrs49IdnSHc
+
+Github project and documentation for PoshBot
+https://github.com/poshbotio/PoshBot
+https://poshbot.readthedocs.io/ 
+#>
+
+<# Demo PoshBot in Slack
+#>
+
 #endregion
 
 #region DSC
+<# Desired State Configuration is a configuration management platform that is integrated into Windows. This means that DSC is used to set the configuration 
+of a server from a text file and then ensure that the server remains in that configuration. The value in this is that we can declare the configuration of a server
+and then reuse that configuration when redeploying the server or deploying another server just like it. This configuration is also self documenting and can be 
+stored in your version control software and tested and deployed as part of a CI/CD pipeline. 
 
+Ok that's all well and good and sounds like awesome marketing speak. In real terms what does that mean? It means that we can deploy a server and do minimal 
+configuration to it (mostly networking) and then apply a configuration to it. In that configuration we tell it what we want the services and files to look like
+and then the local configuration manager (LCM) looks over that configuration and makes it so. The LCM will check over the configuration every 30 minutes and 
+ensure that it still looks the same and if there is a drift then it will correct the drift. 
+
+We'll keep this example simple, this will just check to make sure a file exists. To do so, I've already created the HelloWorld.ps1 script which defines
+how the server should look like. Then, the script is compiled into a mof file which is then applied by the LCM. This example will show configuring a bare install
+of Windows through to final configuration without needing to remote into it.
+
+For more info the Microsoft Docs are a good place to start https://docs.microsoft.com/en-us/powershell/dsc/overview/overview. That is where this example came from.
+#>
+
+<# Starting with a bare installation I'll use PSDirect to configure the networking and join the server to the domain as we saw earlier
+#>
 $domaincred = Get-Credential
 
 Enter-PSSession -ComputerName "IUHQSHPV003.hq.iu13.local" -Credential $domaincred
@@ -1217,7 +1271,7 @@ $setip = {
     }
 
 $credential = Get-Credential 
-Invoke-Command -VMName $servername -ScriptBlock $setip -Credential $
+Invoke-Command -VMName $servername -ScriptBlock $setip -Credential $credential
 
 $rename = {
     $ServerName = "TTL3"
@@ -1227,10 +1281,72 @@ $rename = {
 
 Invoke-Command -VMName $servername -ScriptBlock $rename -Credential $credential
 
-Invoke-Command -VMName $servername -ScriptBlock {Enable-PSRemoting} -Credential $credential
+$bind = {
+ 
+    $domainname = "hq.iu13.local"
 
-Test-NetConnection TTL3
+    Add-Computer -DomainName $DomainName -Restart
+}
+
+Invoke-Command -VMName $servername -ScriptBlock $bind -Credential $credential
+
+<# This time I'm adding a bit more configuration. I am enabling PSRemoting so that once we can get connected we'll switch over to that. I'm also enabling 
+File and Printer sharing so that we can copy files over. I'm installing the module needed for the DSC resources and setting up a folder to host the local files 
+for DSC.
+#>
+$finalconfig = {
+
+    Enable-PSRemoting
+
+    Get-NetFirewallRule -DisplayGroup 'File and Printer Sharing'|  Set-NetFirewallRule -Profile 'Private, Domain' -Enabled true
+
+    Install-Module DSCresources
+
+    New-Item -Path 'c:\dsc' -ItemType directory
+
+}
+
+
+Invoke-Command -VMName $servername -ScriptBlock $finalconfig -Credential $credential
+
+<# Now we can see that we can connect to the server now that it is networked and configured to allow connections.
+#>
+Test-NetConnection TTL3.hq.iu13.local
+
+<# We no longer need PSDirect, now we can do the rest of our configuration via PSRemoting as we would other servers
+#>
+Exit-PSSession
+
+<# Copy over the script that we will compile
+#>
+Copy-Item -Path .\HelloWorld.ps1 '\\ttl3.hq.iu13.local\c$\dsc\'
+
+<# Connect to our server via PSRemoting
+#>
+Enter-PSSession -ComputerName ttl3.hq.iu13.local -Credential $domaincred
+
+<# Change directories and run our script. This creates a new HelloWorld subfolder and puts the compiled mof in that folder
+#>
+cd c:\dsc
+
+. C:\dsc\HelloWorld.ps1
+HelloWorld
+
+<# We provide the path to the mof file and then kick off the LCM
+#>
     
+Start-DscConfiguration -Path C:\dsc\HelloWorld\ -Verbose -Wait -force
+
+<# We can check and ensure that it succeeded
+#>
+Get-DscConfiguration
+
+<# Here's the file that we specified to create. note that we didn't need to tell the server to create the Temp folder, just that it should have the 
+Hello World text file at that location. The LCM configured the server so that would be correct.
+#>
+Get-Content -Path C:\Temp\HelloWorld.txt
+
+
 #endregion
 
 #endregion
